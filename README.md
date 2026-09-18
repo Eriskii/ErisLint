@@ -28,6 +28,7 @@ be sent to Jev. Neither mode reads the secret or makes network requests.
 erislint src/lib.rs src/domain
 erislint --config ./erislint.json
 erislint --format json --jobs 64
+erislint --format compact
 erislint --deny-warnings
 erislint --errors-only
 erislint --all-answers
@@ -46,7 +47,18 @@ the evaluated source excerpt, and a caret under the affected declaration. It
 ends with a short error/warning summary. Confidence and probability details are
 shown only with `--all-answers` or in JSON.
 
-`--errors-only` shows only error diagnostics and their answers, in text or JSON.
+`--format compact` prints one diagnostic per line, followed by the same short
+summary. It works with `--errors-only` and the color options:
+
+```text
+src/lib.rs:12:4: warning[function-simplicity]: Consider whether parse can express its work more directly.
+Found 1 warning.
+```
+
+Multiline diagnostic messages are joined onto one line. `--all-answers` can add
+probability details after the compact diagnostics when requested.
+
+`--errors-only` shows only error diagnostics and their answers in any output format.
 It prints `No errors found.` when no errors were emitted. The filter affects
 display, so `--deny-warnings` still fails a run that produced hidden warnings.
 `--errors-only` and `--all-answers` are mutually exclusive. JSON evaluation counts

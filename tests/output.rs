@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use common::{Project, response, rule};
 use erislint::{
     jev::Response,
-    output::{TextOptions, write_text},
+    output::{TextOptions, TextStyle, write_text},
     policy::Level,
     runner::{Plan, Report, diagnostics, rule_answers},
 };
@@ -110,6 +110,42 @@ fn errors_only_reports_success_when_only_warnings_were_found() {
             }
         ),
         "No errors found.\n"
+    );
+}
+
+#[test]
+fn compact_output_keeps_each_diagnostic_on_one_line() {
+    let (_project, plan, mut report) = fixture([0.7, 0.95]);
+    report.diagnostics[0].location.file = r"src\lib.rs".into();
+    report.diagnostics[0].message = "Explain this\n\tinvariant.".into();
+    let text = render(
+        &report,
+        &plan,
+        TextOptions {
+            style: TextStyle::Compact,
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        text,
+        concat!(
+            "src\\lib.rs:2:4: warning[quality]: Explain this invariant.\n",
+            "src/lib.rs:3:4: error[quality]: Simplify broken\n",
+            "Found 1 error, 1 warning.\n",
+        )
+    );
+    report.retain_errors();
+    assert_eq!(
+        render(
+            &report,
+            &plan,
+            TextOptions {
+                style: TextStyle::Compact,
+                errors_only: true,
+                ..Default::default()
+            }
+        ),
+        "src/lib.rs:3:4: error[quality]: Simplify broken\nFound 1 error.\n"
     );
 }
 

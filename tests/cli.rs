@@ -104,13 +104,18 @@ fn errors_only_is_a_native_cli_mode() {
     let project = Project::new();
     project.json("erislint.json", &json!({ "rules": [rule("quality")] }));
     project.write("src/lib.rs", "struct Empty;");
-    let output = cli(&project, &["--errors-only", "--color", "never"]);
-    assert!(output.status.success());
-    assert_eq!(
-        String::from_utf8(output.stdout).unwrap(),
-        "No errors found.\n"
-    );
-    assert!(output.stderr.is_empty());
+    for format in ["text", "compact"] {
+        let output = cli(
+            &project,
+            &["--format", format, "--errors-only", "--color", "never"],
+        );
+        assert!(output.status.success());
+        assert_eq!(
+            String::from_utf8(output.stdout).unwrap(),
+            "No errors found.\n"
+        );
+        assert!(output.stderr.is_empty());
+    }
     assert_eq!(
         cli(&project, &["--errors-only", "--all-answers"])
             .status

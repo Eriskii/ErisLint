@@ -11,7 +11,7 @@ use clap::{Parser, ValueEnum};
 use erislint::{
     config::{Config, ConfigFile, RuleFile},
     jev::JevClient,
-    output::{TextOptions, write_text},
+    output::{TextOptions, TextStyle, write_text},
     runner::Plan,
 };
 use serde::Serialize;
@@ -62,6 +62,7 @@ struct Cli {
 #[derive(Clone, Copy, ValueEnum)]
 enum Format {
     Text,
+    Compact,
     Json,
 }
 
@@ -105,7 +106,7 @@ async fn run(cli: Cli) -> Result<u8> {
     let config = Config::load(&path)?;
     if cli.check_config {
         match cli.format {
-            Format::Text => println!(
+            Format::Text | Format::Compact => println!(
                 "Configuration valid: {} rules ({})",
                 config.rules.len(),
                 config.path.display()
@@ -148,11 +149,16 @@ async fn run(cli: Cli) -> Result<u8> {
         report.retain_errors();
     }
     match cli.format {
-        Format::Text => write_text(
+        Format::Text | Format::Compact => write_text(
             io::stdout().lock(),
             &report,
             &plan,
             TextOptions {
+                style: if matches!(cli.format, Format::Compact) {
+                    TextStyle::Compact
+                } else {
+                    TextStyle::Source
+                },
                 errors_only: cli.errors_only,
                 all_answers: cli.all_answers,
                 color: match cli.color {

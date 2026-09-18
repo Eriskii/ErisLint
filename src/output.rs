@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
+use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet, normalize_untrusted_str};
 
 use crate::{
     policy,
@@ -8,10 +8,24 @@ use crate::{
 };
 
 #[derive(Default)]
+pub enum TextStyle {
+    #[default]
+    Source,
+    Compact,
+}
+
+#[derive(Default)]
 pub struct TextOptions {
+    pub style: TextStyle,
     pub errors_only: bool,
     pub all_answers: bool,
     pub color: bool,
+}
+
+fn inline_label(text: &str) -> String {
+    normalize_untrusted_str(text)
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
 }
 
 pub fn write_text(
@@ -32,6 +46,25 @@ pub fn write_text(
         };
         let file = diagnostic.location.file.display().to_string();
         let span = &diagnostic.location.span;
+        if matches!(options.style, TextStyle::Compact) {
+            let message = diagnostic
+                .message
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            let title = level
+                .primary_title(message)
+                .id(inline_label(&diagnostic.rule));
+            writeln!(
+                output,
+                "{}:{}:{}: {}",
+                inline_label(&file),
+                span.line,
+                span.column,
+                renderer.render(&[Group::with_title(title)])
+            )?;
+            continue;
+        }
         let title = level
             .primary_title(&diagnostic.message)
             .id(&diagnostic.rule);
