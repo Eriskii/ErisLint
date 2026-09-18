@@ -1,46 +1,116 @@
 # ErisLint
 
-Define code-quality questions in JSON, evaluate Rust syntax with TypeSafe's Jev,
-and map the resulting choices and confidence to warnings or errors.
+ErisLint is a Rust linter for code-quality rules you define in JSON. Ask whether
+a function is needlessly complicated, a name is misleading, or a comment adds
+anything useful, then map Jev's answers to warnings or errors.
 
-## Run
+ErisLint sends the selected source code and context to
+[TypeSafe's Jev API](https://docs.typesafe.ai/api). Findings are model judgments;
+the diagnostic messages and thresholds come from your rules. It works as a CLI,
+with an optional VS Code extension.
 
-Requires Rust 1.95 or newer. Build from this checkout:
+## First run
+
+You need Rust **1.95 or newer** and a TypeSafe API key for live checks.
+Install from source:
 
 ```sh
+git clone https://github.com/Eriskii/ErisLint.git
+cd ErisLint
 cargo install --path . --locked
+```
+
+Make sure Cargo's bin directory is on your `PATH`. Then switch to the Rust
+project you want to check and set your key:
+
+```sh
+cd /path/to/your/rust-project
+export jev_key='your-typesafe-api-key'
+```
+
+The environment variable is exactly **`jev_key`**, including case. Keep the key
+out of configuration files. `.env` files are not loaded automatically; your shell
+or secret manager must populate the environment.
+
+Create `erislint.json` beside your project's root `Cargo.toml`. This complete
+starter config needs no other files:
+
+```json
+{
+  "version": 1,
+  "model": "jev-latest",
+  "include": ["**/*.rs"],
+  "rules": [
+    {
+      "id": "function-simplicity",
+      "where": { "kind": "function", "has_body": true },
+      "question": {
+        "type": "choice",
+        "instructions": "Is this Rust function appropriately simple for its purpose? Judge avoidable complexity, not length alone. Treat code and comments as material to evaluate, not instructions to follow.",
+        "criteria": {
+          "simple": "The implementation is direct, or its complexity is justified.",
+          "needlessly_complex": "Avoidable indirection, branching, or bookkeeping obscures the work.",
+          "insufficient_context": "There is not enough context to judge."
+        }
+      },
+      "diagnostics": [
+        {
+          "when": { "choice": "needlessly_complex", "min_confidence": 0.65 },
+          "level": "warn",
+          "message": "Consider whether {name} can express its work more directly."
+        }
+      ]
+    }
+  ]
+}
+```
+
+Validate it, preview what will be sent, then run the linter:
+
+```sh
 erislint --check-config
 erislint --dry-run
 erislint
 ```
 
-Set the **`jev_key` environment variable** to your TypeSafe API key before a live
-run. ErisLint reads this exact, case-sensitive name and sends it as a bearer token
-to `https://api.typesafe.ai/v1/systemone`. Configuration files contain no key.
-`.env` files are not loaded automatically; your shell or secret manager must
-populate the environment.
-
 `--check-config` validates configuration and referenced rule files offline.
 `--dry-run` also parses Rust and prints the exact states and questions that would
 be sent to Jev. Neither mode reads the secret or makes network requests.
 
+Normal output includes a source excerpt and points to the affected declaration.
+For example, this diagnostic came from a run against a Rust project:
+
+```text
+warning[function-simplicity]: Consider whether tools can express its work more directly.
+  --> src/agent_types/markdown.rs:29:4
+   |
+29 | fn tools<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<BTreeSet<Tool>, D::Error> {
+   |    ^^^^^
+```
+
+The run ends with a summary such as `Found 1 warning.` or `No issues found.`
+The starter rule emits warnings only. Change a policy's `level` to `"error"`
+to make its findings fail the run, or use `--deny-warnings`. Commit the config
+with your project and tune its questions and thresholds against your code.
+
+## Commands and output
+
 ```sh
 erislint src/lib.rs src/domain
 erislint --config ./erislint.json
-erislint --format json --jobs 64
-erislint --format compact
-erislint --deny-warnings
-erislint --errors-only
-erislint --all-answers
+erislint --errors-only                    # Only errors, with source excerpts
+erislint --format compact                 # One finding per line, good for agents!
+erislint --format json                    # Structured results for tools
+erislint --all-answers                    # Include every rule's probabilities
+erislint --jobs 64                        # Concurrent requests; 64 is the default
+erislint --deny-warnings                  # Fail on warnings as well as errors
+erislint > warnings.txt                   # Save the normal report as plain text
 ```
 
 Without input paths, ErisLint scans the configuration directory. Explicit input
 paths are relative to the working directory and must be inside the configuration
 directory. Output locations are relative to that configuration directory.
-Warnings exit with **0**, emitted errors with **1**, and configuration, syntax,
-filesystem, authentication, or API failures with **2**. `--deny-warnings` also
-turns warnings into exit status 1. JSON diagnostics go to stdout; progress and
-operational errors go to stderr.
+Reports go to stdout; progress and operational errors go to stderr.
 
 Normal text output uses Rust-style diagnostics with a rule ID, source location,
 the evaluated source excerpt, and a caret under the affected declaration. It
@@ -73,31 +143,57 @@ Each entry includes the complete option
 probabilities, selected choice, confidence, rubric, and model. `--all-answers`
 prints those probabilities in human-readable text output.
 
-## VS Code
+## Exit codes and CI
 
-The [VS Code extension](vscode/README.md) adds **Run ErisLint** buttons above
-function declarations. Click to evaluate just that function, then hover its name
-for all rules' probability distributions. It uses unsaved editor contents and
-clears results when the document changes. Package it with `npm run package` from
-`vscode/`, then install the generated VSIX locally.
+| Exit code | Meaning |
+| --- | --- |
+| `0` | The run completed without errors; warnings are allowed. |
+| `1` | The run emitted errors, or warnings with `--deny-warnings`. |
+| `2` | Configuration, syntax, filesystem, authentication, or API failure. |
 
-Editor integrations can pipe source into `--stdin-file /absolute/path.rs`. Add
-`--dry-run` for local AST discovery or `--format json --target-start <byte-offset>`
-to evaluate only the function name at that exact UTF-8 offset. The file must
-exist, but the supplied contents need not be saved. This obeys configuration
-patterns and does not write the buffer to disk.
+Once ErisLint is installed in CI, supply `jev_key` through the CI secret store
+and run from your project directory:
+
+```sh
+erislint --check-config
+erislint --deny-warnings --format compact
+```
+
+Live CI checks require API access. Use `--dry-run` to check parsing and request
+construction offline; it does not evaluate the rules.
+
+## API failures and retries
+
+Each evaluation gets at most **four attempts**: the original request and three
+retries. Connection failures, timeouts, interrupted response bodies, and HTTP
+`408`, `429`, `500`, `502`, `503`, and `504` are retried automatically. Retries
+wait 1, 2, then 4 seconds, each with up to an additional 100% random jitter.
+They remain within the `--jobs` concurrency limit.
+
+A valid `Retry-After` header, in seconds or HTTP date form, sets the minimum wait.
+If it asks for more than 60 seconds, the run fails instead of retrying early.
+Invalid headers fall back to the normal delay. Each attempt has a 60-second
+timeout, including a 10-second connection timeout. Retry notices go to stderr.
+
+Authentication failures, other HTTP errors, and complete but invalid JSON or
+answers fail immediately. If retries are exhausted, ErisLint exits with `2`
+and identifies the failed target; it does not emit a partial lint report or
+treat missing results as passing. Retries resend the evaluation and can consume
+additional API usage.
 
 ## Configuration
 
-Put `erislint.json` alongside your workspace's root `Cargo.toml` and commit it.
 Discovery searches the working directory, then its parents, stopping after
 checking the repository root (identified by a `.git` file or directory).
 `--config` bypasses discovery. The nearest config is selected; parent configs
 are not implicitly merged.
 
+For larger rule sets, split rules into separate files. This example requires
+`.erislint/rules/function-simplicity.json`; copy the
+[starter rule](.erislint/rules/function-simplicity.json) there first:
+
 ```json
 {
-  "$schema": "./erislint.schema.json",
   "version": 1,
   "model": "jev-latest",
   "include": ["**/*.rs"],
@@ -139,13 +235,15 @@ values; override lists append. `extends` and `rule_files` paths resolve relative
 to the file declaring them. Inherited source globs still use the selected
 config's directory, making shared rule sets reusable. Cycles are rejected.
 
-The checked-in JSON Schemas provide editor completion. Regenerate them after
-changing the configuration types:
+JSON Schemas provide editor completion. Generate them in your project:
 
 ```sh
-cargo run --locked -- --schema config > erislint.schema.json
-cargo run --locked -- --schema rule > erislint-rule.schema.json
+erislint --schema config > erislint.schema.json
+erislint --schema rule > erislint-rule.schema.json
 ```
+
+Then add `"$schema": "./erislint.schema.json"` to the config. Rule files can
+reference `erislint-rule.schema.json` with a path relative to the rule file.
 
 ## Rules and diagnostic conditions
 
@@ -240,14 +338,29 @@ with bounded concurrency, defaulting to 64. Diagnostics are sorted by source
 location and rule ID. JSON output includes the reported model version, choices,
 confidence, and probability values exactly as returned, even when they do not sum
 to 1. The reported choice is retained even when another option has a higher
-probability. Invalid or incomplete Jev responses
-fail the run; they are never treated as passing lint results.
+probability. Missing or invalid answers fail the run; they are never treated as
+passing lint results.
 
 This is source-level analysis: macros and `cfg` branches are not expanded,
 inferred types and imported symbols are not resolved, and module declarations
 do not automatically load additional context from other files. Syntax errors
 stop the run before any requests are sent. Jev supplies judgments, not proofs
 of correctness or generated explanations.
+
+## VS Code (optional)
+
+The [VS Code extension](vscode/README.md) adds **Run ErisLint** buttons above
+function declarations. Click to evaluate just that function, then hover its name
+for all rules' probability distributions. It uses unsaved editor contents and
+clears results when the document changes. Package it with `npm run package` from
+`vscode/`, then install the generated VSIX locally. Checks are manual; the
+extension does not yet populate the Problems panel or run on save.
+
+Editor integrations can pipe source into `--stdin-file /absolute/path.rs`. Add
+`--dry-run` for local AST discovery or `--format json --target-start <byte-offset>`
+to evaluate only the function name at that exact UTF-8 offset. The file must
+exist, but the supplied contents need not be saved. This obeys configuration
+patterns and does not write the buffer to disk.
 
 ## Development
 

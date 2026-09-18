@@ -8,9 +8,11 @@ description = "Configurable Rust lint rules evaluated by Jev"
 [dependencies]
 annotate-snippets = "0.12.16"
 anyhow = "1"
+backon = { version = "1.6", default-features = false, features = ["std", "tokio-sleep"] }
 clap = { version = "4", features = ["derive"] }
 futures-util = "0.3"
 globset = "0.4"
+httpdate = "1"
 ignore = "0.4"
 ra_ap_syntax = "=0.0.349"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
@@ -22,6 +24,7 @@ toml = "0.9"
 
 [dev-dependencies]
 tempfile = "3"
+wiremock = "0.6"
 
 [lints.rust]
 unsafe_code = "forbid"

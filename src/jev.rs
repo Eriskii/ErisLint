@@ -1,9 +1,14 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    time::{Duration, SystemTime},
+};
 
 use anyhow::{Context, Result, ensure};
+use backon::{ExponentialBuilder, Retryable};
 use reqwest::{
-    Client,
-    header::{AUTHORIZATION, HeaderMap, HeaderValue},
+    Client, StatusCode,
+    header::{AUTHORIZATION, HeaderMap, HeaderValue, RETRY_AFTER},
     redirect::Policy,
 };
 use schemars::JsonSchema;
@@ -13,6 +18,7 @@ use serde_json::Value;
 use crate::policy::Probability;
 
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
+const MAX_RETRY_DELAY: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -129,6 +135,7 @@ impl JevClient {
             .default_headers(headers)
             .user_agent(concat!("erislint/", env!("CARGO_PKG_VERSION")))
             .redirect(Policy::none())
+            .retry(reqwest::retry::never())
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(60))
             .build()
@@ -140,6 +147,40 @@ impl JevClient {
     }
 
     pub async fn evaluate(&self, request: &Request) -> Result<Response> {
+        let mut attempts = 0;
+        let body = (|| {
+            attempts += 1;
+            self.fetch(request)
+        })
+        .retry(
+            ExponentialBuilder::default()
+                .with_min_delay(Duration::from_secs(1))
+                .with_factor(2.0)
+                .with_max_times(3)
+                .with_jitter(),
+        )
+        .adjust(retry_delay)
+        .notify(|error, delay| {
+            eprintln!(
+                "erislint: {error:#}; retrying in {:.1}s",
+                delay.as_secs_f64()
+            );
+        })
+        .await
+        .with_context(|| {
+            format!(
+                "Jev evaluation failed after {attempts} attempt{}",
+                if attempts == 1 { "" } else { "s" }
+            )
+        })?;
+        let response: Response = serde_json::from_slice(&body).context("invalid Jev response")?;
+        response.validate(request)?;
+        Ok(response)
+    }
+
+    // Keep decoding outside the retried operation: a broken connection can be
+    // retried, but a complete response with invalid JSON or answers must fail.
+    async fn fetch(&self, request: &Request) -> Result<Vec<u8>> {
         let response = self
             .client
             .post(&self.endpoint)
@@ -148,9 +189,73 @@ impl JevClient {
             .await
             .context("cannot reach Jev")?;
         let status = response.status();
-        ensure!(status.is_success(), "Jev request failed with HTTP {status}");
-        let response: Response = response.json().await.context("invalid Jev response")?;
-        response.validate(request)?;
-        Ok(response)
+        if !status.is_success() {
+            return Err(HttpFailure {
+                status,
+                retry_after: response
+                    .headers()
+                    .get(RETRY_AFTER)
+                    .and_then(|value| retry_after(value, SystemTime::now())),
+            }
+            .into());
+        }
+        response
+            .bytes()
+            .await
+            .map(|body| body.to_vec())
+            .context("cannot read Jev response")
     }
 }
+
+#[derive(Debug)]
+struct HttpFailure {
+    status: StatusCode,
+    retry_after: Option<Duration>,
+}
+
+impl fmt::Display for HttpFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Jev returned HTTP {}", self.status)?;
+        if self
+            .retry_after
+            .is_some_and(|delay| delay > MAX_RETRY_DELAY)
+        {
+            write!(f, "; Retry-After exceeds the 60s retry limit")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for HttpFailure {}
+
+fn retry_delay(error: &anyhow::Error, backoff: Option<Duration>) -> Option<Duration> {
+    let backoff = backoff?;
+    if let Some(failure) = error.downcast_ref::<HttpFailure>() {
+        return matches!(failure.status.as_u16(), 408 | 429 | 500 | 502 | 503 | 504)
+            .then(|| backoff.max(failure.retry_after.unwrap_or_default()))
+            .filter(|delay| *delay <= MAX_RETRY_DELAY);
+    }
+    error
+        .downcast_ref::<reqwest::Error>()
+        .filter(|error| {
+            error.is_timeout()
+                || error.is_connect()
+                || error.is_request()
+                || error.is_body()
+                || error.is_decode()
+        })
+        .map(|_| backoff)
+}
+
+fn retry_after(value: &HeaderValue, now: SystemTime) -> Option<Duration> {
+    let value = value.to_str().ok()?.trim();
+    if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Some(Duration::from_secs(value.parse().unwrap_or(u64::MAX)));
+    }
+    httpdate::parse_http_date(value)
+        .ok()
+        .map(|date| date.duration_since(now).unwrap_or_default())
+}
+
+#[cfg(test)]
+mod tests;
