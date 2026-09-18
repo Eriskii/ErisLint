@@ -377,3 +377,13 @@ to preserve that compatibility.
 References: [Jev API](https://docs.typesafe.ai/api),
 [confidence](https://docs.typesafe.ai/confidence),
 [Rust syntax library](https://docs.rs/ra_ap_syntax/0.0.349/ra_ap_syntax/).
+
+## License
+
+Copyright (C) 2026 [Eriskii](https://github.com/Eriskii).
+
+ErisLint is licensed under the **GNU Affero General Public License, version 3
+only** (`AGPL-3.0-only`). Keep copyright and license notices intact. Distributed
+covered versions must provide corresponding source under the license; modified
+versions used over a network must also offer their corresponding source to the
+users interacting with them. See [LICENSE](LICENSE) for the full terms.

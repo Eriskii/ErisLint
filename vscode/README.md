@@ -56,3 +56,11 @@ extension runs on the workspace side, so remote workspaces need the CLI there.
 The extension-host test needs a built debug CLI, the `code` command, and a desktop
 session. It opens an isolated test window and uses fixture answers without any
 Jev requests or real credentials.
+
+## License
+
+Copyright (C) 2026 [Eriskii](https://github.com/Eriskii).
+
+Licensed under the GNU Affero General Public License, version 3 only
+(`AGPL-3.0-only`). See [LICENSE](LICENSE). The extension's source is available in
+the [ErisLint repository](https://github.com/Eriskii/ErisLint/tree/main/vscode).

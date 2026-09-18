@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
 description = "Configurable Rust lint rules evaluated by Jev"
+authors = ["Eriskii"]
+license = "AGPL-3.0-only"
+repository = "https://github.com/Eriskii/ErisLint"
 
 [dependencies]
 annotate-snippets = "0.12.16"

@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 use std::io::{self, Write};
 
 use annotate_snippets::{AnnotationKind, Group, Level, Renderer, Snippet, normalize_untrusted_str};

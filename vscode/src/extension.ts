@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 import * as vscode from "vscode";
 import { existsSync } from "node:fs";
 import * as path from "node:path";

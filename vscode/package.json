@@ -5,7 +5,13 @@
   "version": "0.1.1",
   "publisher": "erislint-local",
   "private": true,
-  "license": "UNLICENSED",
+  "author": "Eriskii",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Eriskii/ErisLint.git",
+    "directory": "vscode"
+  },
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Linters", "Programming Languages"],
   "activationEvents": ["onLanguage:rust"],
@@ -46,7 +52,7 @@
     "compile": "tsc -p .",
     "test": "npm run compile && node --test test/*.test.cjs",
     "test:host": "npm run compile && node test/run-host.cjs",
-    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "package": "vsce package --no-dependencies",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {

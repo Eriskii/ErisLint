@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { mkdtempSync, writeFileSync, rmSync } = require('node:fs');

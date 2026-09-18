@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 import { spawn } from "node:child_process";
 
 export interface Span { start: number; end: number; line: number; column: number }

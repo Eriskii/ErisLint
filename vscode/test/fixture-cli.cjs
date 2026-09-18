@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 // Extension-host fixture: real AST discovery, deterministic Jev answers, no network.
 const { spawnSync } = require('node:child_process');
 let source = '';

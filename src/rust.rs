@@ -1,3 +1,7 @@
+// Copyright (C) 2026 Eriskii
+// SPDX-License-Identifier: AGPL-3.0-only
+// See LICENSE for the full license text.
+
 use std::{collections::BTreeSet, fs, path::Path};
 
 use anyhow::{Context, Result, bail};
