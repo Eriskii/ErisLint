@@ -1,0 +1,11 @@
+/target/
+.env
+.env.*
+!.env.example
+/vscode/node_modules/
+/vscode/out/
+/vscode/*.vsix
+/.agents/
+/.codex/
+/erisae-lint-*.txt
+/erisae-lint-*.log

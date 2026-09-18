@@ -1,0 +1,58 @@
+{
+  "name": "erislint",
+  "displayName": "ErisLint",
+  "description": "Run Jev rules on Rust functions and inspect every choice probability on hover.",
+  "version": "0.1.1",
+  "publisher": "erislint-local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Linters", "Programming Languages"],
+  "activationEvents": ["onLanguage:rust"],
+  "main": "./out/extension.js",
+  "extensionKind": ["workspace"],
+  "capabilities": { "untrustedWorkspaces": { "supported": false } },
+  "contributes": {
+    "commands": [
+      { "command": "erislint.runFunction", "title": "ErisLint: Run Current Function" },
+      { "command": "erislint.setJevKey", "title": "ErisLint: Set Jev API Key" },
+      { "command": "erislint.clearJevKey", "title": "ErisLint: Clear Saved Jev API Key" },
+      { "command": "erislint.refresh", "title": "ErisLint: Refresh Functions" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "erislint.runFunction", "when": "editorLangId == rust", "group": "navigation" }
+      ]
+    },
+    "configuration": {
+      "title": "ErisLint",
+      "properties": {
+        "erislint.binaryPath": {
+          "type": "string", "default": "", "scope": "machine-overridable",
+          "description": "Path to the ErisLint CLI. Empty checks the workspace's target/debug, target/release, then PATH."
+        },
+        "erislint.configPath": {
+          "type": "string", "default": "", "scope": "resource",
+          "description": "Optional erislint.json path, relative to the workspace folder or absolute. Empty uses normal discovery."
+        },
+        "erislint.highlightFunctions": {
+          "type": "boolean", "default": true, "scope": "resource",
+          "description": "Underline function names and color completed results."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "npm run compile && node --test test/*.test.cjs",
+    "test:host": "npm run compile && node test/run-host.cjs",
+    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.9.0"
+  }
+}

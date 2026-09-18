@@ -1,0 +1,14 @@
+{
+  "$schema": "./erislint.schema.json",
+  "version": 1,
+  "model": "jev-latest",
+  "include": ["src/**/*.rs", "tests/**/*.rs"],
+  "exclude": ["tests/fixtures/**"],
+  "rule_files": [".erislint/rules/function-simplicity.json"],
+  "overrides": [
+    {
+      "files": ["tests/**"],
+      "rules": { "function-simplicity": "warn" }
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuleFile",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Rule"
+    },
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Rule"
+      }
+    }
+  ],
+  "$defs": {
+    "ChoiceProbability": {
+      "type": "object",
+      "properties": {
+        "choice": {
+          "type": "string"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Probability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Probability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "choice"
+      ]
+    },
+    "Condition": {
+      "description": "Fields are ANDed. `any` and `all` compose nested conditions.",
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Condition"
+          }
+        },
+        "any": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Condition"
+          }
+        },
+        "choice": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "max_confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Probability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Probability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChoiceProbability"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "DiagnosticPolicy": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/Level"
+        },
+        "message": {
+          "type": "string"
+        },
+        "when": {
+          "$ref": "#/$defs/Condition"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "when",
+        "level",
+        "message"
+      ]
+    },
+    "InputContext": {
+      "oneOf": [
+        {
+          "description": "Only the selected AST node's fields.",
+          "type": "string",
+          "const": "target"
+        },
+        {
+          "description": "Add enclosing module, function, impl and trait metadata.",
+          "type": "string",
+          "const": "enclosing"
+        },
+        {
+          "description": "Add enclosing metadata and the entire source file.",
+          "type": "string",
+          "const": "file"
+        }
+      ]
+    },
+    "Level": {
+      "type": "string",
+      "enum": [
+        "warn",
+        "error"
+      ]
+    },
+    "Probability": {
+      "description": "A probability or confidence in the closed interval [0, 1].",
+      "type": "number",
+      "format": "double",
+      "maximum": 1.0,
+      "minimum": 0.0
+    },
+    "Question": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "criteria": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "instructions": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "choice"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "instructions",
+            "criteria"
+          ]
+        }
+      ]
+    },
+    "Rule": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "context": {
+          "$ref": "#/$defs/InputContext",
+          "default": "enclosing"
+        },
+        "diagnostics": {
+          "description": "Evaluated in order; the first matching entry determines the diagnostic.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiagnosticPolicy"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "question": {
+          "$ref": "#/$defs/Question"
+        },
+        "where": {
+          "$ref": "#/$defs/Selector"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "where",
+        "question",
+        "diagnostics"
+      ]
+    },
+    "Selector": {
+      "type": "object",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "has_body": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/TargetKind"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "TargetKind": {
+      "type": "string",
+      "enum": [
+        "function",
+        "struct",
+        "enum",
+        "trait",
+        "impl",
+        "module",
+        "file"
+      ]
+    }
+  }
+}
